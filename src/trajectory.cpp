@@ -64,4 +64,26 @@ std::vector<std::size_t> find_non_finite_rows(const Trajectory& trajectory) {
     return non_finite_rows;
 }
 
+std::vector<std::size_t> find_invalid_timestamp_rows(const Trajectory& trajectory) {
+    validate_trajectory_structure(trajectory);
+
+    std::vector<std::size_t> invalid_rows;
+    for (std::size_t row_index = 0; row_index < trajectory.timestamps.size(); ++row_index) {
+        const double timestamp = trajectory.timestamps[row_index];
+        if (!std::isfinite(timestamp)) {
+            invalid_rows.push_back(row_index);
+            continue;
+        }
+
+        if (row_index > 0) {
+            const double previous_timestamp = trajectory.timestamps[row_index - 1];
+            if (std::isfinite(previous_timestamp) && timestamp <= previous_timestamp) {
+                invalid_rows.push_back(row_index);
+            }
+        }
+    }
+
+    return invalid_rows;
+}
+
 }  // namespace trajectory_tools

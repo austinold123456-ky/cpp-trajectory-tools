@@ -82,6 +82,37 @@ int check_invalid_non_finite_trajectory(const trajectory_tools::Trajectory& traj
     }
 }
 
+int check_invalid_timestamp_rows(const trajectory_tools::Trajectory& trajectory,
+                                 const std::vector<std::size_t>& expected_rows) {
+    try {
+        const std::vector<std::size_t> actual_rows =
+            trajectory_tools::find_invalid_timestamp_rows(trajectory);
+        if (actual_rows == expected_rows) {
+            return 0;
+        }
+
+        std::cerr << "Failure: invalid timestamp row indices did not match the expected result\n";
+        return 1;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: valid timestamp trajectory threw an exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+int check_structurally_invalid_timestamp_trajectory(
+    const trajectory_tools::Trajectory& trajectory) {
+    try {
+        trajectory_tools::find_invalid_timestamp_rows(trajectory);
+        std::cerr << "Failure: structurally invalid trajectory did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument&) {
+        return 0;
+    } catch (...) {
+        std::cerr << "Failure: structurally invalid trajectory threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -120,6 +151,19 @@ int main() {
           {-std::numeric_limits<double>::infinity(), 3.0}}},
         {0, 1, 2});
     failures += check_invalid_non_finite_trajectory({{}, {{1.0, 2.0}}});
+
+    failures += check_invalid_timestamp_rows({{0.0, 0.1, 0.2}, {{0.0}, {0.0}, {0.0}}}, {});
+    failures += check_invalid_timestamp_rows(
+        {{0.0, 0.1, 0.1, 0.05}, {{0.0}, {0.0}, {0.0}, {0.0}}},
+        {2, 3});
+    failures += check_invalid_timestamp_rows(
+        {{0.0,
+          std::numeric_limits<double>::infinity(),
+          0.2,
+          std::numeric_limits<double>::quiet_NaN()},
+         {{0.0}, {0.0}, {0.0}, {0.0}}},
+        {1, 3});
+    failures += check_structurally_invalid_timestamp_trajectory({{}, {{0.0}}});
 
     if (failures != 0) {
         return 1;
