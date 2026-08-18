@@ -1,8 +1,10 @@
 #include "trajectory_tools/trajectory.hpp"
 
 #include <cmath>
+#include <exception>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace {
@@ -24,6 +26,36 @@ int check_displacement(const std::vector<double>& positions, double expected) {
     return 1;
 }
 
+int check_valid_trajectory(const trajectory_tools::Trajectory& trajectory) {
+    try {
+        trajectory_tools::validate_trajectory_structure(trajectory);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: valid trajectory threw an exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+int check_invalid_trajectory(const trajectory_tools::Trajectory& trajectory,
+                             const char* expected_message) {
+    try {
+        trajectory_tools::validate_trajectory_structure(trajectory);
+        std::cerr << "Failure: invalid trajectory did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument& error) {
+        if (std::string(error.what()) == expected_message) {
+            return 0;
+        }
+
+        std::cerr << "Failure: expected exception message \"" << expected_message << "\", got \""
+                  << error.what() << "\"\n";
+        return 1;
+    } catch (...) {
+        std::cerr << "Failure: invalid trajectory threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -41,6 +73,18 @@ int main() {
         std::cerr << "Failure: empty positions threw an unexpected exception type\n";
         ++failures;
     }
+
+    failures += check_valid_trajectory({{0.0, 0.5}, {{1.0, 2.0}, {3.0, 4.0}}});
+    failures += check_invalid_trajectory({{}, {{1.0, 2.0}}}, "timestamps must not be empty");
+    failures += check_invalid_trajectory({{0.0}, {}}, "positions must not be empty");
+    failures += check_invalid_trajectory(
+        {{0.0, 0.5}, {{1.0, 2.0}}},
+        "timestamps and positions must have the same number of rows");
+    failures += check_invalid_trajectory(
+        {{0.0}, {{}}}, "position rows must contain at least one joint");
+    failures += check_invalid_trajectory(
+        {{0.0, 0.5}, {{1.0, 2.0}, {3.0}}},
+        "all position rows must have the same number of joints");
 
     if (failures != 0) {
         return 1;
