@@ -48,4 +48,20 @@ void validate_trajectory_structure(const Trajectory& trajectory) {
     }
 }
 
+std::vector<std::size_t> find_non_finite_rows(const Trajectory& trajectory) {
+    validate_trajectory_structure(trajectory);
+
+    std::vector<std::size_t> non_finite_rows;
+    for (std::size_t row_index = 0; row_index < trajectory.positions.size(); ++row_index) {
+        for (double joint_value : trajectory.positions[row_index]) {
+            if (!std::isfinite(joint_value)) {
+                non_finite_rows.push_back(row_index);
+                break;
+            }
+        }
+    }
+
+    return non_finite_rows;
+}
+
 }  // namespace trajectory_tools

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -56,6 +57,31 @@ int check_invalid_trajectory(const trajectory_tools::Trajectory& trajectory,
     }
 }
 
+int check_non_finite_rows(const trajectory_tools::Trajectory& trajectory,
+                          const std::vector<std::size_t>& expected_rows) {
+    const std::vector<std::size_t> actual_rows =
+        trajectory_tools::find_non_finite_rows(trajectory);
+    if (actual_rows == expected_rows) {
+        return 0;
+    }
+
+    std::cerr << "Failure: non-finite row indices did not match the expected result\n";
+    return 1;
+}
+
+int check_invalid_non_finite_trajectory(const trajectory_tools::Trajectory& trajectory) {
+    try {
+        trajectory_tools::find_non_finite_rows(trajectory);
+        std::cerr << "Failure: structurally invalid trajectory did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument&) {
+        return 0;
+    } catch (...) {
+        std::cerr << "Failure: structurally invalid trajectory threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -85,6 +111,15 @@ int main() {
     failures += check_invalid_trajectory(
         {{0.0, 0.5}, {{1.0, 2.0}, {3.0}}},
         "all position rows must have the same number of joints");
+
+    failures += check_non_finite_rows({{0.0, 0.5}, {{1.0, 2.0}, {3.0, 4.0}}}, {});
+    failures += check_non_finite_rows(
+        {{0.0, 0.5, 1.0},
+         {{std::numeric_limits<double>::quiet_NaN(), 1.0},
+          {std::numeric_limits<double>::infinity(), 2.0},
+          {-std::numeric_limits<double>::infinity(), 3.0}}},
+        {0, 1, 2});
+    failures += check_invalid_non_finite_trajectory({{}, {{1.0, 2.0}}});
 
     if (failures != 0) {
         return 1;
