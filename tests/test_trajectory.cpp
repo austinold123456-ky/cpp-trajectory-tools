@@ -1,7 +1,10 @@
 #include "trajectory_tools/trajectory.hpp"
+#include "trajectory_tools/io.hpp"
 
 #include <cmath>
 #include <exception>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -203,6 +206,98 @@ int check_invalid_trajectory_report_rows(const trajectory_tools::Trajectory& tra
     }
 }
 
+bool write_test_csv(const std::filesystem::path& path, const std::string& contents) {
+    std::ofstream output(path);
+    if (!output) {
+        return false;
+    }
+
+    output << contents;
+    return output.good();
+}
+
+int remove_test_csv(const std::filesystem::path& path) {
+    std::error_code error;
+    std::filesystem::remove(path, error);
+    if (!error) {
+        return 0;
+    }
+
+    std::cerr << "Failure: could not remove temporary CSV file " << path << '\n';
+    return 1;
+}
+
+int check_valid_csv_load(const std::filesystem::path& path) {
+    int failures = remove_test_csv(path);
+    if (failures != 0) {
+        return failures;
+    }
+
+    if (!write_test_csv(path, "timestamp,joint_0,joint_1\n0.0,1.0,2.0\n0.5,3.0,4.0\n")) {
+        std::cerr << "Failure: could not create temporary CSV file " << path << '\n';
+        return 1;
+    }
+
+    try {
+        const trajectory_tools::Trajectory trajectory = trajectory_tools::load_trajectory_csv(path);
+        if (trajectory.timestamps != std::vector<double>{0.0, 0.5} ||
+            trajectory.positions != std::vector<std::vector<double>>{{1.0, 2.0}, {3.0, 4.0}}) {
+            std::cerr << "Failure: valid CSV did not load the expected trajectory values\n";
+            ++failures;
+        }
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: valid CSV threw an exception: " << error.what() << '\n';
+        ++failures;
+    }
+
+    return failures + remove_test_csv(path);
+}
+
+int check_csv_error(const std::filesystem::path& path,
+                    const std::string& contents,
+                    const char* scenario) {
+    int failures = remove_test_csv(path);
+    if (failures != 0) {
+        return failures;
+    }
+
+    if (!write_test_csv(path, contents)) {
+        std::cerr << "Failure: could not create temporary CSV file " << path << '\n';
+        return 1;
+    }
+
+    try {
+        trajectory_tools::load_trajectory_csv(path);
+        std::cerr << "Failure: " << scenario << " did not throw TrajectoryFileError\n";
+        ++failures;
+    } catch (const trajectory_tools::TrajectoryFileError&) {
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: " << scenario << " threw an unexpected exception: " << error.what()
+                  << '\n';
+        ++failures;
+    }
+
+    return failures + remove_test_csv(path);
+}
+
+int check_missing_csv_error(const std::filesystem::path& path) {
+    int failures = remove_test_csv(path);
+    if (failures != 0) {
+        return failures;
+    }
+
+    try {
+        trajectory_tools::load_trajectory_csv(path);
+        std::cerr << "Failure: missing CSV did not throw TrajectoryFileError\n";
+        return 1;
+    } catch (const trajectory_tools::TrajectoryFileError&) {
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: missing CSV threw an unexpected exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -293,6 +388,26 @@ int main() {
           {0.0, 1.1}}},
         {{-1.0, -1.0}, {1.0, 1.0}});
     failures += check_invalid_trajectory_report({{}, {{0.0, 0.0}}}, {{-1.0, -1.0}, {1.0, 1.0}});
+
+    const std::filesystem::path temporary_directory = std::filesystem::temp_directory_path();
+    failures += check_valid_csv_load(temporary_directory / "trajectory_tools_valid.csv");
+    failures += check_missing_csv_error(temporary_directory / "trajectory_tools_missing.csv");
+    failures += check_csv_error(
+        temporary_directory / "trajectory_tools_non_numeric.csv",
+        "timestamp,joint_0\n0.0,not-a-number\n",
+        "non-numeric CSV field");
+    failures += check_csv_error(
+        temporary_directory / "trajectory_tools_partially_numeric_text.csv",
+        "timestamp,joint_0\n0.1abc,0.0\n",
+        "partially numeric text CSV field");
+    failures += check_csv_error(
+        temporary_directory / "trajectory_tools_inconsistent_columns.csv",
+        "timestamp,joint_0,joint_1\n0.0,1.0\n",
+        "inconsistent CSV row column count");
+    failures += check_csv_error(
+        temporary_directory / "trajectory_tools_invalid_header.csv",
+        "time,joint_0\n0.0,1.0\n",
+        "invalid CSV header");
 
     if (failures != 0) {
         return 1;

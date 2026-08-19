@@ -4,7 +4,7 @@ project(cpp_trajectory_tools LANGUAGES CXX)
 
 include(CTest)
 
-add_library(trajectory_tools src/trajectory.cpp)
+add_library(trajectory_tools src/trajectory.cpp src/io.cpp)
 target_include_directories(trajectory_tools PUBLIC include)
 target_compile_features(trajectory_tools PUBLIC cxx_std_17)
 
