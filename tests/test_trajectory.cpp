@@ -40,6 +40,39 @@ int check_valid_trajectory(const trajectory_tools::Trajectory& trajectory) {
     }
 }
 
+int check_trajectory_summary(const trajectory_tools::Trajectory& trajectory) {
+    try {
+        const trajectory_tools::TrajectorySummary summary =
+            trajectory_tools::summarize_trajectory(trajectory);
+        if (summary.sample_count == 3 && summary.joint_count == 2 &&
+            approximately_equal(summary.start_timestamp, 0.0) &&
+            approximately_equal(summary.end_timestamp, 1.0) &&
+            summary.minimum_positions == std::vector<double>{-3.0, -1.0} &&
+            summary.maximum_positions == std::vector<double>{2.0, 4.0}) {
+            return 0;
+        }
+
+        std::cerr << "Failure: trajectory summary did not contain the expected values\n";
+        return 1;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: valid trajectory summary threw an exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+int check_invalid_trajectory_summary(const trajectory_tools::Trajectory& trajectory) {
+    try {
+        trajectory_tools::summarize_trajectory(trajectory);
+        std::cerr << "Failure: invalid trajectory summary did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument&) {
+        return 0;
+    } catch (...) {
+        std::cerr << "Failure: invalid trajectory summary threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
 int check_invalid_trajectory(const trajectory_tools::Trajectory& trajectory,
                              const char* expected_message) {
     try {
@@ -317,6 +350,10 @@ int main() {
     }
 
     failures += check_valid_trajectory({{0.0, 0.5}, {{1.0, 2.0}, {3.0, 4.0}}});
+    failures += check_trajectory_summary(
+        {{0.0, 0.5, 1.0}, {{1.0, 2.0}, {-3.0, 4.0}, {2.0, -1.0}}});
+    failures += check_invalid_trajectory_summary(
+        {{0.0, 0.5}, {{0.0, 0.0}, {std::numeric_limits<double>::quiet_NaN(), 0.0}}});
     failures += check_invalid_trajectory({{}, {{1.0, 2.0}}}, "timestamps must not be empty");
     failures += check_invalid_trajectory({{0.0}, {}}, "positions must not be empty");
     failures += check_invalid_trajectory(

@@ -134,4 +134,39 @@ TrajectoryValidationReport validate_trajectory(const Trajectory& trajectory,
     return report;
 }
 
+TrajectorySummary summarize_trajectory(const Trajectory& trajectory) {
+    validate_trajectory_structure(trajectory);
+
+    if (!find_non_finite_rows(trajectory).empty()) {
+        throw std::invalid_argument("positions must contain only finite values");
+    }
+
+    if (!find_invalid_timestamp_rows(trajectory).empty()) {
+        throw std::invalid_argument("timestamps must be finite and strictly increasing");
+    }
+
+    const std::size_t joint_count = trajectory.positions.front().size();
+    TrajectorySummary summary{
+        trajectory.positions.size(),
+        joint_count,
+        trajectory.timestamps.front(),
+        trajectory.timestamps.back(),
+        trajectory.positions.front(),
+        trajectory.positions.front()};
+
+    for (std::size_t row_index = 0; row_index < trajectory.positions.size(); ++row_index) {
+        for (std::size_t joint_index = 0; joint_index < joint_count; ++joint_index) {
+            const double position = trajectory.positions[row_index][joint_index];
+            if (position < summary.minimum_positions[joint_index]) {
+                summary.minimum_positions[joint_index] = position;
+            }
+            if (position > summary.maximum_positions[joint_index]) {
+                summary.maximum_positions[joint_index] = position;
+            }
+        }
+    }
+
+    return summary;
+}
+
 }  // namespace trajectory_tools
