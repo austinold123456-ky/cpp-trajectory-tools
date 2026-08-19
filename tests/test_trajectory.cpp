@@ -152,6 +152,57 @@ int check_structurally_invalid_timestamp_trajectory(
     }
 }
 
+int check_valid_trajectory_report(const trajectory_tools::Trajectory& trajectory,
+                                  const trajectory_tools::JointLimits& limits) {
+    try {
+        const trajectory_tools::TrajectoryValidationReport report =
+            trajectory_tools::validate_trajectory(trajectory, limits);
+        if (report.non_finite_position_rows.empty() && report.out_of_limit_rows.empty() &&
+            report.invalid_timestamp_rows.empty() && report.is_valid()) {
+            return 0;
+        }
+
+        std::cerr << "Failure: valid trajectory report was not empty and valid\n";
+        return 1;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: valid trajectory report threw an exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+int check_invalid_trajectory_report(const trajectory_tools::Trajectory& trajectory,
+                                    const trajectory_tools::JointLimits& limits) {
+    try {
+        trajectory_tools::validate_trajectory(trajectory, limits);
+        std::cerr << "Failure: structurally invalid report trajectory did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument&) {
+        return 0;
+    } catch (...) {
+        std::cerr << "Failure: structurally invalid report trajectory threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
+int check_invalid_trajectory_report_rows(const trajectory_tools::Trajectory& trajectory,
+                                         const trajectory_tools::JointLimits& limits) {
+    try {
+        const trajectory_tools::TrajectoryValidationReport report =
+            trajectory_tools::validate_trajectory(trajectory, limits);
+        if (report.non_finite_position_rows == std::vector<std::size_t>{1} &&
+            report.out_of_limit_rows == std::vector<std::size_t>{2, 3} &&
+            report.invalid_timestamp_rows == std::vector<std::size_t>{2, 3} && !report.is_valid()) {
+            return 0;
+        }
+
+        std::cerr << "Failure: trajectory report row indices did not match the expected result\n";
+        return 1;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: invalid trajectory report threw an exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -231,6 +282,17 @@ int main() {
          {{0.0}, {0.0}, {0.0}, {0.0}}},
         {1, 3});
     failures += check_structurally_invalid_timestamp_trajectory({{}, {{0.0}}});
+
+    failures += check_valid_trajectory_report(
+        {{0.0, 0.1}, {{0.0, 0.0}, {0.5, -0.5}}}, {{-1.0, -1.0}, {1.0, 1.0}});
+    failures += check_invalid_trajectory_report_rows(
+        {{0.0, 0.1, 0.1, 0.05},
+         {{0.0, 0.0},
+          {std::numeric_limits<double>::quiet_NaN(), 0.0},
+          {-1.1, 0.0},
+          {0.0, 1.1}}},
+        {{-1.0, -1.0}, {1.0, 1.0}});
+    failures += check_invalid_trajectory_report({{}, {{0.0, 0.0}}}, {{-1.0, -1.0}, {1.0, 1.0}});
 
     if (failures != 0) {
         return 1;

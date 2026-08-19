@@ -120,4 +120,18 @@ std::vector<std::size_t> find_invalid_timestamp_rows(const Trajectory& trajector
     return invalid_rows;
 }
 
+bool TrajectoryValidationReport::is_valid() const {
+    return non_finite_position_rows.empty() && out_of_limit_rows.empty() &&
+           invalid_timestamp_rows.empty();
+}
+
+TrajectoryValidationReport validate_trajectory(const Trajectory& trajectory,
+                                                const JointLimits& limits) {
+    TrajectoryValidationReport report;
+    report.non_finite_position_rows = find_non_finite_rows(trajectory);
+    report.out_of_limit_rows = find_out_of_limit_rows(trajectory, limits);
+    report.invalid_timestamp_rows = find_invalid_timestamp_rows(trajectory);
+    return report;
+}
+
 }  // namespace trajectory_tools
