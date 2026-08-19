@@ -24,10 +24,24 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-## Run demo
+## CSV input format
+
+```csv
+timestamp,joint_0,joint_1
+0.0,0.0,0.0
+0.1,0.2,-0.1
+```
+
+- The first column is `timestamp`.
+- Joint columns are named `joint_0`, `joint_1`, and so on.
+- Every data row must have the same number of columns as the header.
+- Malformed files raise `TrajectoryFileError`.
+- CSV loading does not decide whether values are finite, timestamps increase, or joints are within limits; validation does that.
+
+## Run the demo
 
 ```powershell
-.\build\trajectory_demo.exe
+.\build\trajectory_demo.exe examples\invalid_trajectory.csv
 ```
 
 ## Usage
@@ -48,5 +62,5 @@ if (report.is_valid()) {
 
 ## Current scope
 
-- in-memory trajectory validation only
-- no trajectory file I/O yet
+- supports in-memory validation and CSV trajectory loading
+- does not yet support JSON or binary trajectory formats
