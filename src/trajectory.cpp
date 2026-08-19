@@ -1,7 +1,9 @@
 #include "trajectory_tools/trajectory.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cmath>
+#include <iterator>
 #include <stdexcept>
 
 namespace trajectory_tools {
@@ -20,6 +22,21 @@ double maximum_abs_displacement(const std::vector<double>& positions) {
     }
 
     return maximum_displacement;
+}
+
+std::optional<std::size_t> find_first_timestamp_at_or_after(
+    const std::vector<double>& timestamps,
+    double timestamp) {
+    if (!std::isfinite(timestamp)) {
+        throw std::invalid_argument("timestamp query must be finite");
+    }
+
+    const auto iterator = std::lower_bound(timestamps.begin(), timestamps.end(), timestamp);
+    if (iterator == timestamps.end()) {
+        return std::nullopt;
+    }
+
+    return static_cast<std::size_t>(std::distance(timestamps.begin(), iterator));
 }
 
 void validate_trajectory_structure(const Trajectory& trajectory) {

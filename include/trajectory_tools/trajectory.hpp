@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 namespace trajectory_tools {
@@ -33,6 +34,11 @@ struct TrajectorySummary {
 };
 
 double maximum_abs_displacement(const std::vector<double>& positions);
+// timestamps must already be sorted in ascending order. Returns the index of the first
+// timestamp greater than or equal to timestamp, or std::nullopt when no such timestamp exists.
+std::optional<std::size_t> find_first_timestamp_at_or_after(
+    const std::vector<double>& timestamps,
+    double timestamp);
 void validate_trajectory_structure(const Trajectory& trajectory);
 std::vector<std::size_t> find_non_finite_rows(const Trajectory& trajectory);
 std::vector<std::size_t> find_out_of_limit_rows(const Trajectory& trajectory,

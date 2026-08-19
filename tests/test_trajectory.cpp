@@ -30,6 +30,37 @@ int check_displacement(const std::vector<double>& positions, double expected) {
     return 1;
 }
 
+int check_timestamp_lookup() {
+    const std::vector<double> timestamps{0.1, 0.3, 0.5};
+    const auto before_first = trajectory_tools::find_first_timestamp_at_or_after(timestamps, 0.0);
+    const auto exact_match = trajectory_tools::find_first_timestamp_at_or_after(timestamps, 0.3);
+    const auto between_timestamps =
+        trajectory_tools::find_first_timestamp_at_or_after(timestamps, 0.4);
+    const auto after_last = trajectory_tools::find_first_timestamp_at_or_after(timestamps, 0.6);
+
+    if (before_first && *before_first == 0 && exact_match && *exact_match == 1 &&
+        between_timestamps && *between_timestamps == 2 && !after_last) {
+        return 0;
+    }
+
+    std::cerr << "Failure: timestamp lookup did not return the expected indices\n";
+    return 1;
+}
+
+int check_non_finite_timestamp_lookup(double timestamp) {
+    const std::vector<double> timestamps{0.1, 0.3, 0.5};
+    try {
+        trajectory_tools::find_first_timestamp_at_or_after(timestamps, timestamp);
+        std::cerr << "Failure: non-finite timestamp lookup did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument&) {
+        return 0;
+    } catch (...) {
+        std::cerr << "Failure: non-finite timestamp lookup threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
 int check_valid_trajectory(const trajectory_tools::Trajectory& trajectory) {
     try {
         trajectory_tools::validate_trajectory_structure(trajectory);
@@ -338,6 +369,10 @@ int main() {
 
     failures += check_displacement({0.0, 0.4, -0.2, 0.6}, 0.6);
     failures += check_displacement({2.0, 1.0, 3.75, 0.25}, 1.75);
+    failures += check_timestamp_lookup();
+    failures += check_non_finite_timestamp_lookup(std::numeric_limits<double>::quiet_NaN());
+    failures += check_non_finite_timestamp_lookup(std::numeric_limits<double>::infinity());
+    failures += check_non_finite_timestamp_lookup(-std::numeric_limits<double>::infinity());
 
     try {
         trajectory_tools::maximum_abs_displacement({});
