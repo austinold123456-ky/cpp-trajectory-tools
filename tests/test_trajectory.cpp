@@ -82,6 +82,45 @@ int check_invalid_non_finite_trajectory(const trajectory_tools::Trajectory& traj
     }
 }
 
+int check_out_of_limit_rows(const trajectory_tools::Trajectory& trajectory,
+                            const trajectory_tools::JointLimits& limits,
+                            const std::vector<std::size_t>& expected_rows) {
+    try {
+        const std::vector<std::size_t> actual_rows =
+            trajectory_tools::find_out_of_limit_rows(trajectory, limits);
+        if (actual_rows == expected_rows) {
+            return 0;
+        }
+
+        std::cerr << "Failure: out-of-limit row indices did not match the expected result\n";
+        return 1;
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: valid limit configuration threw an exception: " << error.what() << '\n';
+        return 1;
+    }
+}
+
+int check_invalid_limits(const trajectory_tools::Trajectory& trajectory,
+                         const trajectory_tools::JointLimits& limits,
+                         const char* expected_message) {
+    try {
+        trajectory_tools::find_out_of_limit_rows(trajectory, limits);
+        std::cerr << "Failure: invalid joint limits did not throw std::invalid_argument\n";
+        return 1;
+    } catch (const std::invalid_argument& error) {
+        if (std::string(error.what()) == expected_message) {
+            return 0;
+        }
+
+        std::cerr << "Failure: expected exception message \"" << expected_message << "\", got \""
+                  << error.what() << "\"\n";
+        return 1;
+    } catch (...) {
+        std::cerr << "Failure: invalid joint limits threw an unexpected exception type\n";
+        return 1;
+    }
+}
+
 int check_invalid_timestamp_rows(const trajectory_tools::Trajectory& trajectory,
                                  const std::vector<std::size_t>& expected_rows) {
     try {
@@ -151,6 +190,34 @@ int main() {
           {-std::numeric_limits<double>::infinity(), 3.0}}},
         {0, 1, 2});
     failures += check_invalid_non_finite_trajectory({{}, {{1.0, 2.0}}});
+
+    failures += check_out_of_limit_rows(
+        {{0.0, 0.5}, {{0.0, 1.0}, {-1.0, 1.5}}}, {{-1.0, 0.0}, {1.0, 2.0}}, {});
+    failures += check_out_of_limit_rows(
+        {{0.0, 0.5, 1.0, 1.5}, {{0.0, 0.0}, {-1.1, 0.0}, {0.0, 1.1}, {-1.1, 1.1}}},
+        {{-1.0, -1.0}, {1.0, 1.0}},
+        {1, 2, 3});
+    failures += check_out_of_limit_rows(
+        {{0.0, 0.5}, {{-1.0, 2.0}, {1.0, 0.0}}}, {{-1.0, 0.0}, {1.0, 2.0}}, {});
+    failures += check_out_of_limit_rows(
+        {{0.0, 0.5, 1.0},
+         {{std::numeric_limits<double>::quiet_NaN(), 0.0},
+          {std::numeric_limits<double>::infinity(), 0.0},
+          {-std::numeric_limits<double>::infinity(), 0.0}}},
+        {{-1.0, -1.0}, {1.0, 1.0}},
+        {});
+    failures += check_invalid_limits(
+        {{0.0}, {{0.0, 0.0}}},
+        {{-1.0}, {1.0, 1.0}},
+        "lower limits must match the trajectory joint count");
+    failures += check_invalid_limits(
+        {{0.0}, {{0.0, 0.0}}},
+        {{-1.0, -1.0}, {1.0}},
+        "upper limits must match the trajectory joint count");
+    failures += check_invalid_limits(
+        {{0.0}, {{0.0, 0.0}}},
+        {{0.0, 2.0}, {1.0, 1.0}},
+        "lower joint limits must not exceed upper joint limits");
 
     failures += check_invalid_timestamp_rows({{0.0, 0.1, 0.2}, {{0.0}, {0.0}, {0.0}}}, {});
     failures += check_invalid_timestamp_rows(

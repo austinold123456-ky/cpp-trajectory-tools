@@ -64,6 +64,40 @@ std::vector<std::size_t> find_non_finite_rows(const Trajectory& trajectory) {
     return non_finite_rows;
 }
 
+std::vector<std::size_t> find_out_of_limit_rows(const Trajectory& trajectory,
+                                                 const JointLimits& limits) {
+    validate_trajectory_structure(trajectory);
+
+    const std::size_t joint_count = trajectory.positions.front().size();
+    if (limits.lower.size() != joint_count) {
+        throw std::invalid_argument("lower limits must match the trajectory joint count");
+    }
+
+    if (limits.upper.size() != joint_count) {
+        throw std::invalid_argument("upper limits must match the trajectory joint count");
+    }
+
+    for (std::size_t joint_index = 0; joint_index < joint_count; ++joint_index) {
+        if (limits.lower[joint_index] > limits.upper[joint_index]) {
+            throw std::invalid_argument("lower joint limits must not exceed upper joint limits");
+        }
+    }
+
+    std::vector<std::size_t> out_of_limit_rows;
+    for (std::size_t row_index = 0; row_index < trajectory.positions.size(); ++row_index) {
+        for (std::size_t joint_index = 0; joint_index < joint_count; ++joint_index) {
+            const double joint_value = trajectory.positions[row_index][joint_index];
+            if (std::isfinite(joint_value) &&
+                (joint_value < limits.lower[joint_index] || joint_value > limits.upper[joint_index])) {
+                out_of_limit_rows.push_back(row_index);
+                break;
+            }
+        }
+    }
+
+    return out_of_limit_rows;
+}
+
 std::vector<std::size_t> find_invalid_timestamp_rows(const Trajectory& trajectory) {
     validate_trajectory_structure(trajectory);
 
