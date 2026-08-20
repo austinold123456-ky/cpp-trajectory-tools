@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(trajectory_tools_package_consumer LANGUAGES CXX)
+
+find_package(trajectory_tools CONFIG REQUIRED)
+
+add_executable(trajectory_tools_package_consumer main.cpp)
+target_link_libraries(trajectory_tools_package_consumer PRIVATE trajectory_tools::trajectory_tools)
