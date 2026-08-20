@@ -11,37 +11,52 @@ C++ Trajectory Tools is a C++17 library that validates multi-joint robot traject
 
 Row indices in validation reports are zero-based.
 
-## Build
+## Build and test
 
 ```powershell
-cmake -S . -B build -G "MinGW Makefiles"
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
-```
-
-## Run tests
-
-```powershell
 ctest --test-dir build --output-on-failure
 ```
 
 ## CSV input format
 
 ```csv
-timestamp,joint_0,joint_1
+timestamp,joint_0,joint_1,...
 0.0,0.0,0.0
 0.1,0.2,-0.1
 ```
 
 - The first column is `timestamp`.
-- Joint columns are named `joint_0`, `joint_1`, and so on.
-- Every data row must have the same number of columns as the header.
+- Joint columns are named `joint_0`, `joint_1`, and so on; at least one joint column is required.
+- Data rows contain unquoted, comma-separated numeric fields; at least one data row is required.
+- Every data row must have the same number of fields as the header, with no leading or trailing field whitespace.
 - Malformed files raise `TrajectoryFileError`.
-- CSV loading does not decide whether values are finite, timestamps increase, or joints are within limits; validation does that.
+- `nan` and `inf` are loadable values; validation decides whether values are finite, timestamps are finite and strictly increasing, and joints are within limits.
 
 ## Run the demo
 
 ```powershell
 .\build\trajectory_demo.exe examples\invalid_trajectory.csv
+```
+
+The demo loads the CSV and prints a validation report, including zero-based rows with non-finite positions, limit violations, and invalid timestamps.
+
+## Installation and package use
+
+```powershell
+cmake --install build --prefix install
+```
+
+Installation places public headers under `install/include/trajectory_tools/`, the library under `install/lib/`, and `trajectory_demo` under `install/bin/`. The CMake package files are installed under `install/lib/cmake/trajectory_tools/`.
+
+An independent CMake consumer can use the installed package with the install prefix on `CMAKE_PREFIX_PATH`:
+
+```cmake
+find_package(trajectory_tools CONFIG REQUIRED)
+
+add_executable(my_consumer main.cpp)
+target_link_libraries(my_consumer PRIVATE trajectory_tools::trajectory_tools)
 ```
 
 ## Usage
