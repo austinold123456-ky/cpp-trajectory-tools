@@ -1,5 +1,6 @@
 #include "trajectory_tools/io.hpp"
 
+#include <cctype>
 #include <fstream>
 #include <string>
 #include <utility>
@@ -38,6 +39,15 @@ double parse_numeric_field(const std::string& field,
                            const std::filesystem::path& path,
                            std::size_t row_number,
                            std::size_t column_number) {
+    if (!field.empty() &&
+        (std::isspace(static_cast<unsigned char>(field.front())) ||
+         std::isspace(static_cast<unsigned char>(field.back())))) {
+        throw csv_error(path,
+                        "row " + std::to_string(row_number) + ", column " +
+                            std::to_string(column_number) +
+                            " contains leading or trailing whitespace");
+    }
+
     try {
         std::size_t parsed_characters = 0;
         const double value = std::stod(field, &parsed_characters);

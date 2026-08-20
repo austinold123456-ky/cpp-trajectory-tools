@@ -317,6 +317,32 @@ int check_valid_csv_load(const std::filesystem::path& path) {
     return failures + remove_test_csv(path);
 }
 
+int check_valid_crlf_csv_load(const std::filesystem::path& path) {
+    int failures = remove_test_csv(path);
+    if (failures != 0) {
+        return failures;
+    }
+
+    if (!write_test_csv(path, "timestamp,joint_0\r\n0.0,1.0\r\n")) {
+        std::cerr << "Failure: could not create temporary CSV file " << path << '\n';
+        return 1;
+    }
+
+    try {
+        const trajectory_tools::Trajectory trajectory = trajectory_tools::load_trajectory_csv(path);
+        if (trajectory.timestamps != std::vector<double>{0.0} ||
+            trajectory.positions != std::vector<std::vector<double>>{{1.0}}) {
+            std::cerr << "Failure: CRLF CSV did not load the expected trajectory values\n";
+            ++failures;
+        }
+    } catch (const std::exception& error) {
+        std::cerr << "Failure: CRLF CSV threw an exception: " << error.what() << '\n';
+        ++failures;
+    }
+
+    return failures + remove_test_csv(path);
+}
+
 int check_csv_error(const std::filesystem::path& path,
                     const std::string& contents,
                     const char* scenario) {
@@ -463,6 +489,7 @@ int main() {
 
     const std::filesystem::path temporary_directory = std::filesystem::temp_directory_path();
     failures += check_valid_csv_load(temporary_directory / "trajectory_tools_valid.csv");
+    failures += check_valid_crlf_csv_load(temporary_directory / "trajectory_tools_valid_crlf.csv");
     failures += check_missing_csv_error(temporary_directory / "trajectory_tools_missing.csv");
     failures += check_csv_error(
         temporary_directory / "trajectory_tools_non_numeric.csv",
@@ -472,6 +499,14 @@ int main() {
         temporary_directory / "trajectory_tools_partially_numeric_text.csv",
         "timestamp,joint_0\n0.1abc,0.0\n",
         "partially numeric text CSV field");
+    failures += check_csv_error(
+        temporary_directory / "trajectory_tools_leading_whitespace.csv",
+        "timestamp,joint_0\n0.0, 1.0\n",
+        "leading whitespace CSV field");
+    failures += check_csv_error(
+        temporary_directory / "trajectory_tools_trailing_whitespace.csv",
+        "timestamp,joint_0\n0.0,1.0 \n",
+        "trailing whitespace CSV field");
     failures += check_csv_error(
         temporary_directory / "trajectory_tools_inconsistent_columns.csv",
         "timestamp,joint_0,joint_1\n0.0,1.0\n",
